@@ -7,6 +7,7 @@ import org.terasology.entitySystem.EntityManager;
 import org.terasology.entitySystem.EntityRef;
 import org.terasology.dynamicBlocks.components.DynamicBlockComponent;
 
+import javax.vecmath.Quat4f;
 import javax.vecmath.Vector3f;
 
 /**
@@ -22,7 +23,7 @@ public class DynamicFactory {
 
     private EntityManager entityManager;
 
-    public EntityRef generateDynamicBlock(Vector3f position, DynamicBlockComponent.DynamicType type) {
+    public EntityRef generateDynamicBlock(Vector3f position, Quat4f rot, DynamicBlockComponent.DynamicType type) {
         EntityRef entity = null;
         switch (type) {
             case Train: {
@@ -34,7 +35,7 @@ public class DynamicFactory {
                 break;
             }
             default:
-                entity = entityManager.create("dynamicBlocks:train");
+                entity = entityManager.create("dynamicBlocks:basic");
         }
         if (entity == null)
             return null;
@@ -42,6 +43,8 @@ public class DynamicFactory {
         LocationComponent loc = entity.getComponent(LocationComponent.class);
         if (loc != null) {
             loc.setWorldPosition(position);
+            if (rot != null)
+                loc.setLocalRotation(rot);
             entity.saveComponent(loc);
         }
 

@@ -15,11 +15,18 @@
  */
 package org.terasology.dynamicBlocks.componentsystem.controllers;
 
+import com.bulletphysics.linearmath.QuaternionUtil;
+import com.google.common.collect.Lists;
+import org.terasology.asset.AssetType;
+import org.terasology.asset.AssetUri;
 import org.terasology.components.ItemComponent;
 import org.terasology.dynamicBlocks.components.DynamicBlockComponent;
 import org.terasology.dynamicBlocks.componentsystem.entityfactory.DynamicFactory;
+import org.terasology.game.CoreRegistry;
+import org.terasology.logic.manager.AudioManager;
 import org.terasology.math.Side;
 import org.terasology.math.TeraMath;
+import org.terasology.math.Vector3i;
 import org.terasology.physics.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +39,9 @@ import org.terasology.logic.LocalPlayer;
 import org.terasology.physics.character.CharacterMovementComponent;
 import org.terasology.physics.shapes.BoxShapeComponent;
 import org.terasology.world.WorldProvider;
+import org.terasology.world.block.Block;
+import org.terasology.world.block.BlockComponent;
+import org.terasology.world.block.BlockItemComponent;
 
 import javax.vecmath.*;
 
@@ -68,88 +78,95 @@ public final class DynamicBlocksSystem implements UpdateSubscriberSystem, EventH
 
     @ReceiveEvent(components = {DynamicBlockComponent.class, ItemComponent.class}, priority = EventPriority.PRIORITY_HIGH)
     public void onPlaceFunctional(ActivateEvent event, EntityRef item) {
-        DynamicBlockComponent functionalItem = item.getComponent(DynamicBlockComponent.class);
+        DynamicBlockComponent placeDynamicItem = item.getComponent(DynamicBlockComponent.class);
+        LocationComponent selectedLocation = event.getTarget().getComponent(LocationComponent.class);
+
+
+        // TODO: Check whether it is possible to place it (e.g. boat cannot be placed on land)
 
         Side surfaceDir = Side.inDirection(event.getHitNormal());
         Side secondaryDirection = TeraMath.getSecondaryPlacementDirection(event.getDirection(), event.getHitNormal());
 
-        // TODO: Check whether it is possible to place it (e.g. boat cannot be placed on land)
+        if (event.getTarget().hasComponent(BlockComponent.class)) {
+            BlockComponent selectedItem = event.getTarget().getComponent(BlockComponent.class);
 
-        Vector3f newPosition = new Vector3f(localPlayer.getPosition().x + localPlayer.getViewDirection().x*1.5f,
-                localPlayer.getPosition().y + localPlayer.getViewDirection().y*1.5f,
-                localPlayer.getPosition().z + localPlayer.getViewDirection().z*1.5f
-        );
-
-        if (worldProvider.getBlock(newPosition).isPenetrable()) {
-            /*event.getTarget().getComponent(LocationComponent.class).getWorldPosition()*/
-            EntityRef entity = dynamicFactory.generateDynamicBlock(newPosition, functionalItem.getDynamicType());
-
-            //functionalEntity.send(new ImpulseEvent(new Vector3f(localPlayer.getViewDirection().x, localPlayer.getViewDirection().y, localPlayer.getViewDirection().z)));
-
-            /*
-            if (!placeBlock(functionalItem.functionalFamily, event.getTarget().getComponent(BlockComponent.class).getPosition(), surfaceDir, secondaryDirection, functionalItem)) {
+            if (!placeBlock(placeDynamicItem.getDynamicType(), selectedItem, surfaceDir, secondaryDirection)) {
                 event.cancel();
             }
-            */
+        } else if (event.getTarget().hasComponent(DynamicBlockComponent.class)) {
+            DynamicBlockComponent selectedDynamicItem = event.getTarget().getComponent(DynamicBlockComponent.class);
+
+            if (!stackBlock(placeDynamicItem.getDynamicType(), selectedDynamicItem.getDynamicType(), new Vector3i(selectedLocation.getWorldPosition()), selectedLocation.getLocalRotation(), surfaceDir, secondaryDirection)) {
+                event.cancel();
+            }
         }
+
+
+        //if (worldProvider.getBlock(newPosition).isPenetrable()) {
+            //functionalEntity.send(new ImpulseEvent(new Vector3f(localPlayer.getViewDirection().x, localPlayer.getViewDirection().y, localPlayer.getViewDirection().z)));
+
+        //}
     }
 
     /**
-     * Places a block of a given type in front of the player.
+     * Places a block of a given type in front of the player, not stacking to any blocks.
      *
      * @param type The type of the block
      * @return True if a block was placed
      */
-    /*
-    private boolean placeBlock(BlockFamily type, Vector3i targetBlock, Side surfaceDirection, Side secondaryDirection, BlockItemComponent blockItem) {
+    private boolean placeBlock(DynamicBlockComponent.DynamicType type, BlockComponent selectedBlock, Side surfaceDirection, Side secondaryDirection) {
         if (type == null)
             return true;
 
-        Vector3i placementPos = new Vector3i(targetBlock);
+        /*
+        Vector3f newPosition = new Vector3f(localPlayer.getPosition().x + localPlayer.getViewDirection().x*1.5f,
+                localPlayer.getPosition().y + localPlayer.getViewDirection().y*1.5f,
+                localPlayer.getPosition().z + localPlayer.getViewDirection().z*1.5f
+        );
+        */
+
+        Vector3i placementPos = new Vector3i(selectedBlock.getPosition());
         placementPos.add(surfaceDirection.getVector3i());
 
-        Block block = type.getBlockFor(surfaceDirection, secondaryDirection);
-        if (block == null)
-            return false;
+        if (canPlaceBlock(placementPos, selectedBlock)) {
+            EntityRef entity = dynamicFactory.generateDynamicBlock(placementPos.toVector3f(), null, type);
+            AudioManager.play(new AssetUri(AssetType.SOUND, "engine:PlaceBlock"), 0.5f);
 
-        if (canPlaceBlock(block, targetBlock, placementPos)) {
-            if (blockEntityRegistry.setBlock(placementPos, block, worldProvider.getBlock(placementPos), blockItem.placedEntity)) {
-                AudioManager.play(new AssetUri(AssetType.SOUND, "engine:PlaceBlock"), 0.5f);
-                if (blockItem.placedEntity.exists()) {
-                    blockItem.placedEntity = EntityRef.NULL;
-                }
-                return true;
-            }
+            return true;
         }
         return false;
     }
 
-    private boolean canPlaceBlock(Block block, Vector3i targetBlock, Vector3i blockPos) {
-        Block centerBlock = worldProvider.getBlock(targetBlock.x, targetBlock.y, targetBlock.z);
+    private boolean canPlaceBlock(Vector3i placePos, BlockComponent selectedBlock) {
+        Block centerBlock = worldProvider.getBlock(placePos.x, placePos.y, placePos.z);
 
-        if (!centerBlock.isAttachmentAllowed()) {
+        if (!centerBlock.isPenetrable()) {
             return false;
         }
 
-        Block adjBlock = worldProvider.getBlock(blockPos.x, blockPos.y, blockPos.z);
-        if (!adjBlock.isReplacementAllowed() || adjBlock.isTargetable()) {
-            return false;
-        }
-
-        // Prevent players from placing blocks inside their bounding boxes
-        if (!block.isPenetrable()) {
-            return !CoreRegistry.get(BulletPhysics.class).scanArea(block.getBounds(blockPos), Lists.<CollisionGroup>newArrayList(StandardCollisionGroup.DEFAULT, StandardCollisionGroup.CHARACTER)).iterator().hasNext();
-        }
         return true;
     }
-    */
 
-    @ReceiveEvent(components = {DynamicBlockComponent.class, LocationComponent.class})
-    public void onDestroy(final RemovedComponentEvent event, final EntityRef entity) {
-        DynamicBlockComponent comp = entity.getComponent(DynamicBlockComponent.class);
-        if (comp.collider != null) {
-            physics.removeCollider(comp.collider);
-        }
+    /**
+     * Places a block of a given type stacking with other dynamic blocks.
+     *
+     * @param type The type of the block
+     * @return True if a block was placed
+     */
+    private boolean stackBlock(DynamicBlockComponent.DynamicType type, DynamicBlockComponent.DynamicType selectedDynamicType, Vector3i selectedPosition, Quat4f rot, Side surfaceDirection, Side secondaryDirection) {
+        if (type == null)
+            return true;
+
+        // Rotate local coordinates
+        //Vector3i offset = new Vector3i(QuaternionUtil.quatRotate(rot, surfaceDirection.getVector3i().toVector3f(), surfaceDirection.getVector3i().toVector3f()));
+        Vector3i offset = surfaceDirection.getVector3i();
+        Vector3i placementPos = new Vector3i(selectedPosition);
+        placementPos.add(offset);
+
+        EntityRef entity = dynamicFactory.generateDynamicBlock(placementPos.toVector3f(), rot, selectedDynamicType);
+        AudioManager.play(new AssetUri(AssetType.SOUND, "engine:PlaceBlock"), 0.5f);
+
+        return true;
     }
 
     public void update(float delta) {
@@ -165,23 +182,26 @@ public final class DynamicBlocksSystem implements UpdateSubscriberSystem, EventH
             if (!localPlayer.isValid())
                 return;
 
-            if (standingOn(entity)) {
-                Vector3f movementDirection = localPlayer.getViewDirection();
-                float speed = movementDirection.length();
-                movementDirection = new Vector3f(movementDirection.x, 0, movementDirection.z);
-                movementDirection.normalize();
-                movementDirection.scale(speed);
+            if (entity.hasComponent(CharacterMovementComponent.class)) {
+                if (standingOn(entity)) {
+                    Vector3f movementDirection = localPlayer.getViewDirection();
+                    float speed = movementDirection.length();
+                    movementDirection = new Vector3f(movementDirection.x, 0, movementDirection.z);
+                    movementDirection.normalize();
+                    movementDirection.scale(speed);
 
-                Vector3f desiredVelocity = new Vector3f(movementDirection);
-                desiredVelocity.scale(loco.getMaximumSpeed());
+                    Vector3f desiredVelocity = new Vector3f(movementDirection);
+                    desiredVelocity.scale(loco.getMaximumSpeed());
 
-                CharacterMovementComponent movement = entity.getComponent(CharacterMovementComponent.class);
-                movement.setDrive(desiredVelocity);
-                entity.saveComponent(movement);
-            } else {
-                CharacterMovementComponent movement = entity.getComponent(CharacterMovementComponent.class);
-                movement.setDrive(new Vector3f(0, 0, 0));
-                entity.saveComponent(movement);
+                    CharacterMovementComponent movement = entity.getComponent(CharacterMovementComponent.class);
+                    movement.setDrive(desiredVelocity);
+                    entity.saveComponent(movement);
+                } else {
+                    CharacterMovementComponent movement = entity.getComponent(CharacterMovementComponent.class);
+                    movement.setDrive(new Vector3f(0, 0, 0));
+                    entity.saveComponent(movement);
+
+                }
             }
         }
     }

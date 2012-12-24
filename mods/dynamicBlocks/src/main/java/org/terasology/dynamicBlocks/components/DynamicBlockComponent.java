@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import org.terasology.entitySystem.Component;
 import org.terasology.physics.CollisionGroup;
 import org.terasology.physics.StandardCollisionGroup;
+import org.terasology.world.block.family.BlockFamily;
 
 import javax.vecmath.Vector3f;
 import java.util.List;
@@ -31,26 +32,16 @@ public final class DynamicBlockComponent implements Component {
 
     public enum DynamicType {
         Train,
-        Boat
+        Boat,
+        Basic
     }
-
-    public CollisionGroup collisionGroup = StandardCollisionGroup.CHARACTER;
-    public List<CollisionGroup> collidesWith = Lists.<CollisionGroup>newArrayList(StandardCollisionGroup.WORLD, StandardCollisionGroup.SENSOR);
 
     public DynamicType dynamicType = DynamicType.Train;
 
-    public Vector3f currentVelocity = new Vector3f();
-
     public float maximumSpeed = 1f;
 
-    public transient PairCachingGhostObject collider;
-
-    // Movement settings
-    //public float stepHeight = 0.35f;
-    public float stepHeight = 1.4f;
-    public float slopeFactor = 0.6f; // Cosine of the maximum slope traversable. 1 is no slope, 0 is any slope
-
-    public boolean shouldMove = false;
+    public BlockFamily[] allowedIn = {};
+    public BlockFamily[] allowedOnTopOf = {};
 
     public DynamicType getDynamicType() {
         return dynamicType;
