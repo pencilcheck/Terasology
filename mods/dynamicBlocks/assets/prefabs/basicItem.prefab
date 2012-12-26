@@ -1,0 +1,11 @@
+{
+    "Item" : {
+        "name" : "Basic",
+        "icon" : "apple",
+        "renderWithIcon" : true,
+        "usage" : "IN_DIRECTION"
+    },
+    "DynamicBlockItem" : {
+        "dynamicType" : "Basic"
+    }
+}

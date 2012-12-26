@@ -1,0 +1,11 @@
+{
+    "Item" : {
+        "name" : "Locomotive",
+        "icon" : "bowl",
+        "renderWithIcon" : true,
+        "usage" : "IN_DIRECTION"
+    },
+    "DynamicBlockItem" : {
+        "dynamicType" : "Locomotive"
+    }
+}

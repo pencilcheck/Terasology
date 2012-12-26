@@ -15,37 +15,20 @@
  */
 package org.terasology.dynamicBlocks.components;
 
-import com.bulletphysics.collision.dispatch.PairCachingGhostObject;
-import com.google.common.collect.Lists;
 import org.terasology.entitySystem.Component;
-import org.terasology.math.Side;
-import org.terasology.physics.CollisionGroup;
-import org.terasology.physics.StandardCollisionGroup;
 import org.terasology.world.block.family.BlockFamily;
-
-import javax.vecmath.Vector3f;
-import java.util.List;
 
 /**
  * @author Pencilcheck <pennsu@gmail.com>
  */
-public final class DynamicBlockComponent implements Component {
+public final class DynamicBlockItemComponent implements Component {
     // TODO: Extract out into one class like BlockFamily
     public enum DynamicType {
         Locomotive,
         Basic
     }
 
-    public boolean activated = false;
-
     public DynamicType dynamicType = DynamicType.Basic;
-
-    public Side direction = Side.FRONT;
-
-    public float maximumSpeed = 1f;
-
-    public BlockFamily[] allowedIn = {};
-    public BlockFamily[] allowedOnTopOf = {};
 
     public DynamicType getDynamicType() {
         return dynamicType;
@@ -53,25 +36,5 @@ public final class DynamicBlockComponent implements Component {
 
     public void setDynamicType(DynamicType new_type) {
         dynamicType = new_type;
-    }
-
-    public float getMaximumSpeed() {
-        return maximumSpeed;
-    }
-
-    public void setMaximumSpeed(float new_maximumSpeed) {
-        maximumSpeed = new_maximumSpeed;
-    }
-
-    public boolean isActivated() {
-        return this.activated;
-    }
-
-    public void activate() {
-        this.activated = true;
-    }
-
-    public void deactivate() {
-        this.activated = false;
     }
 }

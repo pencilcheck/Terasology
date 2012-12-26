@@ -3,6 +3,8 @@ package org.terasology.dynamicBlocks.componentsystem.entityfactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.terasology.components.world.LocationComponent;
+import org.terasology.dynamicBlocks.components.DynamicBlockItemComponent;
+import org.terasology.dynamicBlocks.components.DynamicGroupComponent;
 import org.terasology.entitySystem.EntityManager;
 import org.terasology.entitySystem.EntityRef;
 import org.terasology.dynamicBlocks.components.DynamicBlockComponent;
@@ -23,32 +25,58 @@ public class DynamicFactory {
 
     private EntityManager entityManager;
 
-    public EntityRef generateDynamicBlock(Vector3f position, Quat4f rot, DynamicBlockComponent.DynamicType type) {
+    public EntityRef generateDynamicBlock(Vector3f position, EntityRef group, DynamicBlockItemComponent.DynamicType type) {
         EntityRef entity = null;
         switch (type) {
-            case Train: {
-                entity = entityManager.create("dynamicBlocks:train");
+            case Basic: {
+                entity = entityManager.create("dynamicBlocks:basic", position);
                 break;
             }
-            case Boat: {
-                entity = entityManager.create("dynamicBlocks:boat");
+            case Locomotive: {
+                entity = entityManager.create("dynamicBlocks:locomotive", position);
                 break;
             }
             default:
-                entity = entityManager.create("dynamicBlocks:basic");
+                entity = entityManager.create("dynamicBlocks:basic", position);
         }
         if (entity == null)
             return null;
 
-        LocationComponent loc = entity.getComponent(LocationComponent.class);
-        if (loc != null) {
-            loc.setWorldPosition(position);
-            if (rot != null)
-                loc.setLocalRotation(rot);
-            entity.saveComponent(loc);
+        logger.info("generate {}", type);
+
+        EntityRef new_group = null;
+
+        if (group == EntityRef.NULL) {
+            logger.info("creating a group", type);
+            new_group = entityManager.create("dynamicBlocks:group");
+            LocationComponent groupLocation = new_group.getComponent(LocationComponent.class);
+            LocationComponent loc = entity.getComponent(LocationComponent.class);
+
+            groupLocation.setWorldPosition(loc.getWorldPosition());
+            new_group.saveComponent(groupLocation);
+
+            if (new_group == null)
+                return null;
+        } else {
+            new_group = group;
         }
 
-        return entity;
+        DynamicGroupComponent groupComponent = new_group.getComponent(DynamicGroupComponent.class);
+        groupComponent.addMember(entity);
+        new_group.saveComponent(groupComponent);
+
+        // Calculate relative position from group position
+        LocationComponent groupLocation = new_group.getComponent(LocationComponent.class);
+        LocationComponent loc = entity.getComponent(LocationComponent.class);
+        Vector3f current_loc = loc.getWorldPosition();
+        current_loc.sub(groupLocation.getWorldPosition());
+        loc.setWorldPosition(current_loc);
+        entity.saveComponent(loc);
+
+        groupLocation.addChild(entity, new_group);
+        new_group.saveComponent(groupLocation);
+
+        return new_group;
     }
 
     public void setEntityManager(EntityManager entityManager) {

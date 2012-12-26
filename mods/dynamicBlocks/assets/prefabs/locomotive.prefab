@@ -1,8 +1,8 @@
 {
     "Location" : {},
     "Mesh" : {
-        "mesh" : "engine:cube",
-        "material" : "engine:default"
+        "renderType" : "GelatinousCube",
+        "color" : [0, 0, 1, 1]
     },
     "RigidBody" : {
         "mass" : 20f,
@@ -14,6 +14,7 @@
         "extents" : [1, 1, 1]
     },
     "DynamicBlock" : {
-        "dynamicType" : "Basic"
+        "dynamicType" : "Locomotive",
+        "maximumSpeed" : 1
     }
 }
