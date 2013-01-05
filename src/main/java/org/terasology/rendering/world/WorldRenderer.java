@@ -96,7 +96,6 @@ import org.terasology.world.WorldProviderWrapper;
 import org.terasology.world.WorldTimeEvent;
 import org.terasology.world.WorldView;
 import org.terasology.world.block.Block;
-import org.terasology.world.block.management.BlockManager;
 import org.terasology.world.chunks.Chunk;
 import org.terasology.world.chunks.ChunkProvider;
 import org.terasology.world.chunks.ChunkStore;
@@ -358,7 +357,6 @@ public final class WorldRenderer {
         _worldTimeEventManager.addWorldTimeEvent(new WorldTimeEvent(0.25, true) {
             @Override
             public void run() {
-            	//TODO get beter tck instead afternoon
             	if(getPlayerPosition().y<50)
             		AudioManager.playMusic("engine:DwarfForge");
             	else if(getPlayerPosition().y>175)
@@ -511,15 +509,13 @@ public final class WorldRenderer {
 
         updateAndQueueVisibleChunks();
 
-        if (Config.getInstance().isComplexWater()) {
-            PostProcessingRenderer.getInstance().beginRenderReflectedScene();
-            glCullFace(GL11.GL_FRONT);
-            getActiveCamera().setReflected(true);
-            renderWorldReflection(getActiveCamera());
-            getActiveCamera().setReflected(false);
-            glCullFace(GL11.GL_BACK);
-            PostProcessingRenderer.getInstance().endRenderReflectedScene();
-        }
+        PostProcessingRenderer.getInstance().beginRenderReflectedScene();
+        glCullFace(GL11.GL_FRONT);
+        getActiveCamera().setReflected(true);
+        renderWorldReflection(getActiveCamera());
+        getActiveCamera().setReflected(false);
+        glCullFace(GL11.GL_BACK);
+        PostProcessingRenderer.getInstance().endRenderReflectedScene();
 
         PostProcessingRenderer.getInstance().beginRenderScene();
         renderWorld(getActiveCamera());
@@ -534,7 +530,7 @@ public final class WorldRenderer {
             glClear(GL_DEPTH_BUFFER_BIT);
             glPushMatrix();
             glLoadIdentity();
-            _activeCamera.loadProjectionMatrix(80f);
+            _activeCamera.loadProjectionMatrix(90f);
 
             PerformanceMonitor.startActivity("Render First Person");
             for (RenderSystem renderer : _systemManager.iterateRenderSubscribers()) {
@@ -562,23 +558,20 @@ public final class WorldRenderer {
 
         glEnable(GL_LIGHT0);
 
-        boolean headUnderWater;
-
-        headUnderWater = _cameraMode == CAMERA_MODE.PLAYER && isUnderwater();
+        boolean headUnderWater =_cameraMode == CAMERA_MODE.PLAYER && isUnderWater();
 
         if (_wireframe)
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-        PerformanceMonitor.startActivity("RenderOpaque");
+        PerformanceMonitor.startActivity("Render Objects (Opaque)");
 
         for (RenderSystem renderer : _systemManager.iterateRenderSubscribers()) {
             renderer.renderOpaque();
         }
 
-
         PerformanceMonitor.endActivity();
 
-        PerformanceMonitor.startActivity("Render ChunkOpaque");
+        PerformanceMonitor.startActivity("Render Chunks (Opaque)");
 
         /*
          * FIRST RENDER PASS: OPAQUE ELEMENTS
@@ -588,7 +581,7 @@ public final class WorldRenderer {
 
         PerformanceMonitor.endActivity();
 
-        PerformanceMonitor.startActivity("Render ChunkTransparent");
+        PerformanceMonitor.startActivity("Render Chunks (Transparent)");
 
         /*
          * SECOND RENDER PASS: BILLBOARDS
@@ -601,7 +594,7 @@ public final class WorldRenderer {
 
         PerformanceMonitor.endActivity();
 
-        PerformanceMonitor.startActivity("Render Transparent");
+        PerformanceMonitor.startActivity("Render Objects (Transparent)");
 
         for (RenderSystem renderer : _systemManager.iterateRenderSubscribers()) {
             renderer.renderTransparent();
@@ -609,7 +602,7 @@ public final class WorldRenderer {
 
         PerformanceMonitor.endActivity();
 
-        PerformanceMonitor.startActivity("Render ChunkWaterIce");
+        PerformanceMonitor.startActivity("Render Chunks (Water, Ice)");
 
         // Make sure the water surface is rendered if the player is swimming
         if (headUnderWater) {
@@ -634,9 +627,15 @@ public final class WorldRenderer {
             }
         }
 
+        PerformanceMonitor.endActivity();
+
+        PerformanceMonitor.startActivity("Render Overlays");
+
         for (RenderSystem renderer : _systemManager.iterateRenderSubscribers()) {
             renderer.renderOverlay();
         }
+
+        PerformanceMonitor.endActivity();
 
         glDisable(GL_BLEND);
 
@@ -647,31 +646,32 @@ public final class WorldRenderer {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
         glDisable(GL_LIGHT0);
-
-        PerformanceMonitor.endActivity();
     }
 
     public void renderWorldReflection(Camera camera) {
-        PerformanceMonitor.startActivity("Render Sky");
+        PerformanceMonitor.startActivity("Render World (Reflection)");
         camera.lookThroughNormalized();
         _skysphere.render();
 
-        camera.lookThrough();
+        if (Config.getInstance().isComplexWater()) {
+            camera.lookThrough();
 
-        glEnable(GL_LIGHT0);
+            glEnable(GL_LIGHT0);
 
-        for (Chunk c : _renderQueueChunksOpaque)
-            renderChunk(c, ChunkMesh.RENDER_PHASE.OPAQUE, camera);
+            for (Chunk c : _renderQueueChunksOpaque)
+                renderChunk(c, ChunkMesh.RENDER_PHASE.OPAQUE, camera);
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        for (Chunk c : _renderQueueChunksSortedBillboards)
-            renderChunk(c, ChunkMesh.RENDER_PHASE.BILLBOARD_AND_TRANSLUCENT, camera);
+            for (Chunk c : _renderQueueChunksSortedBillboards)
+                renderChunk(c, ChunkMesh.RENDER_PHASE.BILLBOARD_AND_TRANSLUCENT, camera);
 
+            glDisable(GL_BLEND);
+            glDisable(GL_LIGHT0);
+        }
 
-        glDisable(GL_BLEND);
-        glDisable(GL_LIGHT0);
+        PerformanceMonitor.endActivity();
     }
 
     private void renderChunk(Chunk chunk, ChunkMesh.RENDER_PHASE phase, Camera camera) {
@@ -713,13 +713,11 @@ public final class WorldRenderer {
     }
 
     public float getRenderingLightValueAt(Vector3f pos) {
-        float lightValueSun = _worldProvider.getSunlight(pos);
-        lightValueSun /= 15.0f;
+        float lightValueSun = (float) Math.pow(0.76, 16 - _worldProvider.getSunlight(pos));
         lightValueSun *= getDaylight();
-        float lightValueBlock = _worldProvider.getLight(pos);
-        lightValueBlock /= 15f;
+        float lightValueBlock = (float) Math.pow(0.76, 16 - _worldProvider.getLight(pos));
 
-        return (float) TeraMath.clamp(lightValueSun + lightValueBlock * (1.0 - lightValueSun));
+        return (lightValueSun + lightValueBlock * (1.0f - lightValueSun)) + (1.0f - (float) getDaylight()) * 0.05f;
     }
 
     public void update(float delta) {
@@ -764,7 +762,7 @@ public final class WorldRenderer {
         // TODO: Implement
     }
 
-    private boolean isUnderwater() {
+    public boolean isUnderWater() {
         Vector3f cameraPos = CoreRegistry.get(WorldRenderer.class).getActiveCamera().getPosition();
         Block block = CoreRegistry.get(WorldProvider.class).getBlock(new Vector3f(cameraPos));
         return block.isLiquid();
