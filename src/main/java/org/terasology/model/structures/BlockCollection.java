@@ -17,15 +17,25 @@ package org.terasology.model.structures;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import groovy.util.MapEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.terasology.game.CoreRegistry;
+import org.terasology.math.Region3i;
+import org.terasology.math.Vector3i;
+import org.terasology.rendering.primitives.ChunkMesh;
+import org.terasology.rendering.primitives.Mesh;
+import org.terasology.rendering.world.WorldRenderer;
 import org.terasology.world.BlockUpdate;
 import org.terasology.world.WorldProvider;
+import org.terasology.world.WorldView;
 import org.terasology.world.block.Block;
 import org.terasology.world.block.BlockUri;
 
 import com.google.common.collect.Lists;
+import org.terasology.world.chunks.Chunk;
 
 
 /**
@@ -148,6 +158,23 @@ public class BlockCollection {
             }
         }
         return filtered;
+    }
+
+    public Chunk getChunk() {
+        Chunk c = new Chunk();
+        for (Map.Entry entry : _blocks.entrySet()) {
+            c.setBlock((BlockPosition) entry.getKey(), (Block) entry.getValue());
+            c.setSunlight(((BlockPosition) entry.getKey()), Chunk.MAX_LIGHT);
+        }
+        return c;
+    }
+
+    public ChunkMesh getMesh() {
+        WorldView view = new WorldView(new Chunk[] {getChunk()}, Region3i.createFromCenterExtents(Vector3i.zero(), Vector3i.zero()), Vector3i.zero());
+        ChunkMesh me = CoreRegistry.get(WorldRenderer.class).getChunkTesselator().generateMesh(view, Vector3i.zero(), calcHeight(), 0);
+        me.generateVBOs();
+        me._vertexElements = null;
+        return me;
     }
 
     /**

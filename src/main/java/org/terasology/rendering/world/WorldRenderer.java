@@ -224,6 +224,15 @@ public final class WorldRenderer {
         initTimeEvents();
     }
 
+    public Chunk getChunkAtPlayerPosition() {
+        if (_chunkProvider != null) {
+            Chunk c = _chunkProvider.getChunk(calcCamChunkOffsetX(), 0, calcCamChunkOffsetZ());
+            if (c != null && c.getChunkState() == Chunk.State.COMPLETE && _worldProvider.getLocalView(c.getPos()) != null)
+                return c;
+        }
+        return null;
+    }
+
     /**
      * Updates the list of chunks around the player.
      *
