@@ -5,8 +5,8 @@
         "material" : "engine:default"
     },
     "RigidBody" : {
-        "mass" : 20f,
-        "kinematic" : true,
+        "mass" : 100f,
+        "kinematic" : false,
         "collisionGroup" : "engine:world",
         "collidesWith" : ["engine:world","engine:debris","engine:sensor","engine:character"]
     },

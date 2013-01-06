@@ -84,18 +84,18 @@ public final class DynamicBlockSystem implements UpdateSubscriberSystem, EventHa
         LocationComponent targetLocation = event.getTarget().getComponent(LocationComponent.class);
         DynamicBlockItemComponent placeDynamicItem = item.getComponent(DynamicBlockItemComponent.class);
 
-        logger.info("placing Dynamic blocks {}", placeDynamicItem.getDynamicType());
+        logger.debug("placing Dynamic blocks {}", placeDynamicItem.getDynamicType());
 
         Side surfaceDir = Side.inDirection(event.getHitNormal());
         Side secondaryDirection = TeraMath.getSecondaryPlacementDirection(event.getDirection(), event.getHitNormal());
 
         if (event.getTarget().hasComponent(BlockComponent.class)) {
-            logger.info("placing on normal block");
+            logger.debug("placing on normal block");
             if (!placeBlock(placeDynamicItem.getDynamicType(), targetLocation, surfaceDir, secondaryDirection, EntityRef.NULL)) {
                 event.cancel();
             }
         } else {
-            logger.info("placing on dynamic block");
+            logger.debug("placing on dynamic block");
             EntityRef group = event.getTarget().getComponent(LocationComponent.class).getParent() == EntityRef.NULL ? event.getTarget() : event.getTarget().getComponent(LocationComponent.class).getParent();
             if (!placeBlock(placeDynamicItem.getDynamicType(), targetLocation, surfaceDir, secondaryDirection, group)) {
                 event.cancel();
@@ -114,6 +114,9 @@ public final class DynamicBlockSystem implements UpdateSubscriberSystem, EventHa
             return true;
 
         Vector3f offset = surfaceDirection.getVector3i().toVector3f();
+        /* for rigidbodies */
+        offset.scale(1.1f); // leave a moderately small gap from other rigidbodies, or physics engine won't allow it to happen
+        /* above for rigidbodies */
         offset = QuaternionUtil.quatRotate(locationComponent.getWorldRotation(), offset, offset);
 
         Vector3f placementPos = new Vector3f(locationComponent.getWorldPosition());
@@ -122,11 +125,11 @@ public final class DynamicBlockSystem implements UpdateSubscriberSystem, EventHa
         // TODO: position is skewed when the blocks are true rigidbodies
         // it seems like the positions are close to the ground block
 
-        logger.info("target location {}", placementPos);
+        logger.debug("target location {}", placementPos);
 
         if (canPlaceBlock(type, placementPos, parent)) {
-            logger.info("creating entity");
-            EntityRef placedEntity = dynamicFactory.generateDynamicBlock(placementPos, parent, type);
+            logger.debug("creating entity");
+            EntityRef placedEntity = dynamicFactory.generateDynamicBlock(placementPos, locationComponent.getWorldRotation(), parent, type);
             if (parent != EntityRef.NULL) {
                 LocationComponent parentLocation = parent.getComponent(LocationComponent.class);
                 dynamicEntities.put(new Vector3i(parentLocation.getWorldPosition()), placedEntity);
@@ -237,7 +240,7 @@ public final class DynamicBlockSystem implements UpdateSubscriberSystem, EventHa
         entity.saveComponent(movement);
         */
 
-        // Manual movement
+        /* Manual movement
         LocationComponent location = entity.getComponent(LocationComponent.class);
         Vector3f position = location.getWorldPosition();
         Vector3f diff = loco.direction.getVector3i().toVector3f();
@@ -253,10 +256,11 @@ public final class DynamicBlockSystem implements UpdateSubscriberSystem, EventHa
             player_location.setWorldPosition(playerPosition);
             localPlayer.getEntity().saveComponent(player_location);
         }
+        /* above for manual movement */
 
         // Impulses
+        // for rigidbodies
         //entity.send(new ImpulseEvent(new Vector3f(localPlayer.getViewDirection().x, localPlayer.getViewDirection().y, localPlayer.getViewDirection().z)));
-        /*
         DynamicGroupComponent groupComponent = entity.getComponent(DynamicGroupComponent.class);
         for (EntityRef member : groupComponent.getMembers()) {
             LocationComponent location = member.getComponent(LocationComponent.class);
@@ -265,7 +269,7 @@ public final class DynamicBlockSystem implements UpdateSubscriberSystem, EventHa
                 member.send(new ImpulseEvent(new Vector3f(0, 10f, 0)));
             }
         }
-        */
+        /* above for rigidbodies */
     }
 
     public boolean inWater(LocationComponent location) {
@@ -284,7 +288,7 @@ public final class DynamicBlockSystem implements UpdateSubscriberSystem, EventHa
 
     @ReceiveEvent(components = {LocationComponent.class, CharacterMovementComponent.class})
     public void onMove(MovedEvent event, EntityRef entity) {
-        logger.info("group {} moving {} to {}", entity, event.getDelta(), event.getPosition());
+        logger.debug("group {} moving {} to {}", entity, event.getDelta(), event.getPosition());
         /*
         if (standingOn(entity)) {
             // update player position

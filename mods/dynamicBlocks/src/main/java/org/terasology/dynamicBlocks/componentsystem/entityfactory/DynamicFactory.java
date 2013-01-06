@@ -25,8 +25,9 @@ public class DynamicFactory {
 
     private EntityManager entityManager;
 
-    public EntityRef generateDynamicBlock(Vector3f position, EntityRef group, DynamicBlockItemComponent.DynamicType type) {
+    public EntityRef generateDynamicBlock(Vector3f position, Quat4f rotation, EntityRef group, DynamicBlockItemComponent.DynamicType type) {
         EntityRef entity = null;
+
         switch (type) {
             case Basic: {
                 entity = entityManager.create("dynamicBlocks:basic", position);
@@ -39,21 +40,16 @@ public class DynamicFactory {
             default:
                 entity = entityManager.create("dynamicBlocks:basic", position);
         }
+
         if (entity == null)
             return null;
 
         logger.info("generate {}", type);
 
         EntityRef new_group = null;
-
         if (group == EntityRef.NULL) {
             logger.info("creating a group", type);
-            new_group = entityManager.create("dynamicBlocks:group");
-            LocationComponent groupLocation = new_group.getComponent(LocationComponent.class);
-            LocationComponent loc = entity.getComponent(LocationComponent.class);
-
-            groupLocation.setWorldPosition(loc.getWorldPosition());
-            new_group.saveComponent(groupLocation);
+            new_group = entityManager.create("dynamicBlocks:group", position);
 
             if (new_group == null)
                 return null;
@@ -65,14 +61,20 @@ public class DynamicFactory {
         groupComponent.addMember(entity);
         new_group.saveComponent(groupComponent);
 
-        // Calculate relative position from group position
+
+
         LocationComponent groupLocation = new_group.getComponent(LocationComponent.class);
+
+        // Calculate relative position from group position
         LocationComponent loc = entity.getComponent(LocationComponent.class);
-        Vector3f current_loc = loc.getWorldPosition();
+        Vector3f current_loc = position;
         current_loc.sub(groupLocation.getWorldPosition());
         loc.setWorldPosition(current_loc);
+        if (rotation != null)
+            loc.setWorldRotation(rotation);
         entity.saveComponent(loc);
 
+        // Before entityManager.create takes a parent field, we have to manually add it after setting the location
         groupLocation.addChild(entity, new_group);
         new_group.saveComponent(groupLocation);
 
